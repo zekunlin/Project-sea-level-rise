@@ -1,6 +1,6 @@
 folder_list <- list.files(path = "E:/Zekun/Project_Sea_Level_Rise/data/us_revenue_migration_data/",
            pattern = "*countymigration", full.names = TRUE)
-folder_selecte <- folder_list[1]
+folder_selecte <- folder_list[2]
 folder_selecte
 txt_path <- list.files(folder_selecte, recursive = T, 
            pattern = glob2rx("C*o.txt"), full.names = TRUE)
@@ -110,7 +110,7 @@ for(txt in txt_path){
   migration_table_for_this_state <- migration_table_for_this_state[-1,]
   colnames(migration_table_for_this_state) <- c("y1_state", "y1_county", "y2_state", "y2_county", "y2_state_name", "returns")
   write.table(migration_table_for_this_state, 
-              file = paste("E:/Zekun/Project_Sea_Level_Rise/data/processed_migration_table/county_out_flow_9192/",
+              file = paste("E:/Zekun/Project_Sea_Level_Rise/data/processed_migration_table/",
                            substr(txt, 149, 160), sep = ""), row.names = FALSE, sep = ",")
   
 }
@@ -128,16 +128,93 @@ for(a in 1:length(origins_index)){
 
 #2. the second part will adress migration from 93-04, data are stored as xls files.
 require(readxl)
-xls_path <- folder_list[3:13]
+xls_path <- folder_list[3:13] # 3- 13
 
 for(f in xls_path){
   county_in_f <- list.files(f, recursive = T, pattern = glob2rx("C*o.xls"), 
                             full.names = TRUE)
+  filename_part1 <- list.files(f, recursive = T, pattern = glob2rx("C*o.xls"), 
+                               full.names = TRUE)
+  filename_part2 <- list.files(f, recursive = T, pattern = glob2rx("c*o.xls"), 
+                               full.names = TRUE)
+  filename_part3 <- list.files(f, recursive = T, pattern = glob2rx("CO*O.XLS"), 
+                                full.names = TRUE)
+  
+  county_in_f <- c(filename_part1, filename_part2, filename_part3)
+  
+  #county_in_f_part2 <- 
+  county_in_f_short <- list.files(f, recursive = T, pattern = glob2rx("C*o.xls"), 
+                                  full.names = FALSE)
+  which_year <- substr(f, 64, 88)
+  dir_path <- paste("E:/Zekun/Project_Sea_Level_Rise/data/processed_migration_table/", which_year, sep = "")
+  
+  if(!dir.exists(dir_path)){
+    dir.create(dir_path)
+  }
+  
   for(c in county_in_f){
-    migration_of_this_state <- read_excel(c, col_names = FALSE, skip = 8)
-    colnames(migration_of_this_state) <- c("y1_state", "y1_county", "y2_state", 
+    
+    if(substr(c, nchar(c) - 6, nchar(c) - 4) == "uso"){
+      next()
+    }else{
+      state_name <- paste(substr(c, nchar(c) - 44, nchar(c) - 35),
+                          substr(c, nchar(c) - 6, nchar(c) - 4),sep = "")
+      
+      migration_of_this_state <- read_excel(c, col_names = FALSE, skip = 8)
+      colnames(migration_of_this_state) <- c("y1_state", "y1_county", "y2_state", 
                                            "y2_county", "y2_state_name", "dest_detail"
                                           ,"returns", "exemption", "total_income")
+      migration_within_56_states <- subset(migration_of_this_state, y2_state <= 56)
+    
+      write.csv(migration_within_56_states, file = paste(dir_path, "/", state_name, ".csv", sep = ""))
+    }
+    
     
   }
 }
+
+
+# this part only process 2003-2004 data -------------------------------------
+for(f in xls_path){
+  county_in_f <- list.files(f, recursive = T, pattern = glob2rx("C*o.xls"), 
+                            full.names = TRUE)
+  filename_part1 <- list.files(f, recursive = T, pattern = glob2rx("C*o.xls"), 
+                               full.names = TRUE)
+  filename_part2 <- list.files(f, recursive = T, pattern = glob2rx("c*o.xls"), 
+                               full.names = TRUE)
+  filename_part3 <- list.files(f, recursive = T, pattern = glob2rx("CO*O.XLS"), 
+                               full.names = TRUE)
+  
+  county_in_f <- c(filename_part1, filename_part2, filename_part3)
+  
+  #county_in_f_part2 <- 
+  #county_in_f_short <- list.files(f, recursive = T, pattern = glob2rx("C*o.xls"), 
+  #                                full.names = FALSE)
+  which_year <- substr(f, 64, 88)
+  dir_path<- paste("E:/Zekun/Project_Sea_Level_Rise/data/processed_migration_table/", which_year, sep = "")
+  
+  if(!dir.exists(dir_path)){
+    dir.create(dir_path)
+  }
+  
+  for(c in county_in_f){
+    
+    if(substr(c, nchar(c) - 6, nchar(c) - 4) == "usor"){
+      next()
+    }else{
+      state_name <- paste(substr(c, nchar(c) - 45, nchar(c) - 36),
+                          substr(c, nchar(c) - 6, nchar(c) - 4),sep = "")
+      
+      migration_of_this_state <- read_excel(c, col_names = FALSE, skip = 8)
+      colnames(migration_of_this_state) <- c("y1_state", "y1_county", "y2_state", 
+                                             "y2_county", "y2_state_name", "dest_detail"
+                                             ,"returns", "exemption", "total_income")
+      migration_within_56_states <- subset(migration_of_this_state, y2_state <= 56)
+      
+      write.csv(migration_within_56_states, file = paste(dir_path, "/", state_name, ".csv", sep = ""))
+    }
+    
+    
+  }
+}
+

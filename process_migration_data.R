@@ -144,8 +144,15 @@ for (state in full_states_list) {
       valid_return_ind <- valid_return_ind + 1
     }
   }
+  
+  valid_return_table <- looping_state_migration_table[1:valid_return_ind - 1,]
+  no_migration_comb_table <- no_migration_combinations[1:no_return_ind - 1, ]
+  
+  write.table(valid_return_table, "E:/Zekun/Project_Sea_Level_Rise/data/Population_Migration/nc_valid_return.csv",
+            sep = ",", col.names = TRUE)
+  write.table(no_migration_comb_table, "E:/Zekun/Project_Sea_Level_Rise/data/Population_Migration/nc_no_migration_comb.csv",
+              sep = ",", col.names = TRUE)
 }
-
 
 
 
@@ -213,107 +220,71 @@ write.table(x = results1, file = "E:/Zekun/total_migration_08_15_v2.csv", sep = 
 
 
 
-# system.time(return_matched_migration(i = 113205, 
-#                          ori_dest_df = county_migration_table_copy, 
-#                          matrix_storage = matrix_storage_list))
+##### Updates Hauer's table    -------------------------------------------------
+# This part will update hauer's table with new 2013-2015 data
+h_origin <- hauer_irs_migration_data$origin
+h_dest <- hauer_irs_migration_data$destination
 
-##### let's do it in plain and practical way -----------------------------------
-
-irs_data_box_length <- length(matrix_storage)
-
-table_to_run <- county_migration_table
-
-for(irow in 1:dim(table_to_run)[1]){
+updated_hauer_matrix <- as.data.frame(hauer_irs_migration_data)
+updated_hauer_matrix$`2014` <- rep(NA, 46203)
+updated_hauer_matrix$`2015` <- rep(NA, 46203)
+for (kth in 1:length(h_origin)){
+  h_origin_state <- h_origin[kth] %/% 1000
+  h_origin_county <- h_origin[kth] %% 1000
+  h_dest_state <- h_dest[kth] %/% 1000
+  h_dest_county <- h_dest[kth] %% 1000
   
-  matched_record_vector <- rep(NA, irs_data_box_length)
+  hauer_kth_return <- hauer_irs_migration_data[kth, 21:26]
   
-  for(yth in 1:irs_data_box_length){
-    matrix_of_y <- as.data.frame(matrix_storage[[yth]])
-    
-    matched_record_ind <- which(matrix_of_y[,1] == table_to_run[irow, 1] &        # get the row index of matched record
-                                matrix_of_y[,2] == table_to_run[irow, 2] &
-                                matrix_of_y[,3] == table_to_run[irow, 3] &
-                                matrix_of_y[,4] == table_to_run[irow, 4])
-    
-    if(length(matched_record_ind)>0){                                           # consider 3 situation here: 1)duplicated matched record, 2)no returns, 3) valid returns
-      
-      matched_record_returns <- matrix_of_y[matched_record_ind, 7]               # 7th column is the number of returns
-      
-      if( length(unique(matched_record_returns)) > 1){
-        matched_record <- mean(matched_record_returns)
-      }else if(is.na(matched_record_returns)){
-        matched_record <- 0
-      }else{
-        matched_record <- matched_record_returns
-      }
-    }else{
-      matched_record <- 0
+  matched_vector <- vector(length = 8)
+  
+  for (eth in 1:length(irs_storage_list)) {
+    matrix_of_eth <- as.data.frame(irs_storage_list[[eth]])
+    matched_index <- which(matrix_of_eth$y1_statefips == h_origin_state &
+                          matrix_of_eth$y1_countyfips == h_origin_county &
+                          matrix_of_eth$y2_statefips == h_dest_state &
+                          matrix_of_eth$y2_countyfips == h_dest_county)
+    if(length(matched_index) >= 1){
+      matched_returns <- mean(matrix_of_eth[matched_index, 7])
+      matched_vector[eth] <- matched_returns
+    }else {
+      matched_returns <- 0
+      matched_vector[eth] <- matched_returns
     }
     
-    matched_record_vector[yth] <- matched_record                                # save to yth element represent yth year
     
   }
-  table_to_run[irow, 5:12] <- matched_record_vector
+  
+  if(all(matched_vector[1:6] == hauer_kth_return)){
+    updated_hauer_matrix[kth, 27:28] <- matched_vector[7:8]
+  }else{
+    diff_vector <- matched_vector - hauer_kth_return
+    diff_ind <- which(diff_vector != 0)
+    updated_hauer_matrix[kth, diff_ind] <- matched_vector[diff_ind]
+    updated_hauer_matrix[kth, 27:28] <- matched_vector[7:8]
+  }
+  
+}
+write.table(updated_hauer_matrix, "E:/Zekun/Project_Sea_Level_Rise/data/migration_records_v2.csv", 
+            col.names = TRUE, sep = ", ")
+
+## now detect if there are combinations left behind by hauer's data------------
+irs_2014 <- irs_storage_list[[7]]
+irs_2015 <- irs_storage_list[[8]]
+
+returns_matrix <- irs_2014
+for (nth in 1:nrow(returns_matrix)){
+ nth_vector <- returns_matrix[nth,]
+ ori_state_fips <- fill_two_digits_state(nth_vector$y1_statefips)
+ ori_county_fips <- fill_three_digits_county(nth_vector$y1_countyfips)
+ dest_state_fips <- fill_two_digits_state(nth_vector$y2_statefips)
+ dest_county_fips <- fill_three_digits_county(nth_vector$y2_countyfips)
+ ori_place <- paste(ori_state_fips, ori_county_fips, sep = "")
+ dest_place <- paste(dest_state_fips, dest_county_fips, sep = "")
+ 
+ which(updated_hauer_matrix$origin == as.numeric(ori_place))
 }
 
-write.table(table_to_run, file = "E:/Zekun/total_migration_08_15_v3.csv", sep = ",", col.names = TRUE, row.names = FALSE)
+  
 
-system.time(
-  # get combination of selected looping state
-  ori_from_this_state <- subset(all_ori_desti_comb_matrix, ori_state == state)
-  n_combinations <- nrow(ori_from_this_state)
-  
-  # create an empty matrix to store migration records
-  looping_state_migration_table <- as.data.frame(matrix(data = NA, 
-                                                        nrow = n_combinations, 
-                                                        ncol = 12))
-  no_migration_combinations <- as.data.frame(matrix(data = NA,
-                                                    nrow = n_combinations,
-                                                    ncol = 4))
-  # naming columns
-  colnames(looping_state_migration_table) <- c("ori_state", "ori_county", "dest_state",  
-                                               "dest_county", as.character(2008:2015))
-  colnames(no_migration_combinations) <- c("ori_state", "ori_county", "dest_state",  
-                                           "dest_county")
-  valid_return_ind = 1
-  no_return_ind = 1
-  
-  for(irow in 1:n_combinations){
-    
-    matched_record_vector <- rep(NA, 8)                                         # why repeated 8 times?  2008 to 2015
-    searching_criteria <- ori_from_this_state[irow,]
-    
-    for(yth in 1: 8){
-      matrix_of_y <- as.data.frame(irs_storage_list[[yth]])
-      
-      matched_record_ind <- which(matrix_of_y[,1] == searching_criteria[1] &        # get the row index of matched record
-                                    matrix_of_y[,2] == searching_criteria[2] &
-                                    matrix_of_y[,3] == searching_criteria[3] &
-                                    matrix_of_y[,4] == searching_criteria[4])
-      
-      if(length(matched_record_ind)>0){                                         # consider 3 situation here: 1)duplicated matched record, 2)no returns, 3) valid returns
-        matched_returns <- matrix_of_y[matched_record_ind, 7]                   # 7th column is the number of returns
-        
-        if( length(unique(matched_returns)) > 1){
-          matched_record <- mean(matched_returns)
-        }else if(is.na(matched_returns)){
-          matched_record <- 0
-        }else{
-          matched_record <- matched_returns
-        }
-      }else{
-        matched_record <- 0
-      }
-      
-      matched_record_vector[yth] <- matched_record                              # save to yth element represent yth year
-    }
-    
-    if(sum(matched_record_vector) == 0){
-      no_migration_combinations[no_return_ind, ] <- searching_criteria
-      no_return_ind <- no_return_ind + 1
-    }else{
-      looping_state_migration_table[k, ] <- c(searching_criteria, matched_record_vector)
-      valid_return_ind <- valid_return_ind + 1
-    }
-  }
-)
+
