@@ -109,7 +109,7 @@ total_mig_combinations <- total_mig_combinations[-1, ]
 t1 <- cbind(total_mig_combinations,
             matrix(data=0, nrow = nrow(total_mig_combinations), ncol = 26))
 
-for(k in 2:length(annual_table_dir)){
+for(k in 1:length(annual_table_dir)){
   
   mig_of_f <- read.csv(annual_table_dir[k], header = TRUE, sep = ",")
   table_dim <- dim(mig_of_f)
@@ -129,9 +129,9 @@ for(k in 2:length(annual_table_dir)){
   for(irow in 1:nrow(f_table)){
     
     ith_key <- f_table[irow, 3]
-    store_vector[which(t1$key == ith_key)] <- f_table[irow, 4]
+    store_vector[which(t1$key == ith_key)] <- as.numeric(as.character(unlist(f_table[irow, ]$returns)))
   }
-  t1[, k + 3] <- store_vector
+   t1[, k + 3] <- store_vector
 }
 
 colnames(t1) <- c("origin", "destination", "key", as.character(seq(1990, 2015)))
